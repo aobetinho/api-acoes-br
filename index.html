@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Ações BR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #111827; color: white; font-family: system-ui, sans-serif; }
+        .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 16px; }
+        .btn { padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: #16a34a; color: white; }
+        .btn-primary:hover { background: #15803d; }
+        .btn-secondary { background: #374151; color: #d1d5db; }
+        .btn-secondary:hover { background: #4b5563; }
+        .btn-active { background: #16a34a; color: white; }
+        .green { color: #4ade80; }
+        .red { color: #f87171; }
+        input { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 12px; color: white; width: 100%; }
+        input:focus { outline: none; border-color: #16a34a; }
+        .loader { border: 3px solid #374151; border-top: 3px solid #16a34a; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="p-4 min-h-screen">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-green-400 mb-2">🇧🇷 Dashboard de Ações Brasileiras</h1>
+            <p class="text-gray-400 text-sm">Dados em tempo real via BrAPI</p>
+        </div>
+
+        <!-- Search -->
+        <div class="flex gap-2 mb-4">
+            <input type="text" id="searchInput" placeholder="Digite o ticker (ex: PETR4)" value="PETR4">
+            <button class="btn btn-primary flex items-center gap-2" onclick="loadData()">
+                🔍 Buscar
+            </button>
+            <button class="btn btn-secondary" onclick="loadData()">🔄</button>
+        </div>
+
+        <!-- Quick Access -->
+        <div class="mb-6 space-y-2">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-gray-400 text-sm w-28">🛢️ Commodities:</span>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('PETR4')">PETR4</button>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('VALE3')">VALE3</button>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('SUZB3')">SUZB3</button>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-gray-400 text-sm w-28">🏦 Bancos:</span>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('ITUB4')">ITUB4</button>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('BBDC4')">BBDC4</button>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('BBAS3')">BBAS3</button>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-gray-400 text-sm w-28">⚡ Energia:</span>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('ELET3')">ELET3</button>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('CPFE3')">CPFE3</button>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('TAEE11')">TAEE11</button>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-gray-400 text-sm w-28">🏭 Indústria:</span>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('WEGE3')">WEGE3</button>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('EMBR3')">EMBR3</button>
+                <button class="btn btn-secondary text-sm" onclick="selectTicker('RENT3')">RENT3</button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="text-center py-12 hidden">
+            <div class="loader mb-4"></div>
+            <p class="text-gray-400">Carregando dados...</p>
+        </div>
+
+        <!-- Error -->
+        <div id="error" class="card mb-6 hidden" style="background: rgba(127,29,29,0.5); border-color: #dc2626;">
+            <p class="text-red-300" id="errorText"></p>
+        </div>
+
+        <!-- Main Content -->
+        <div id="content" class="hidden">
+            <!-- Quote Card -->
+            <div class="card mb-6">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        <img id="logo" src="" alt="" class="w-16 h-16 rounded-xl bg-white p-2 hidden">
+                        <div>
+                            <h2 class="text-3xl font-bold" id="symbol"></h2>
+                            <p class="text-gray-400" id="companyName"></p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-4xl font-bold" id="price"></div>
+                        <div class="flex items-center justify-end gap-2 text-xl mt-1" id="change"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                <div class="card">
+                    <div class="text-gray-400 text-xs mb-1">Abertura</div>
+                    <div class="text-lg font-semibold" id="open"></div>
+                </div>
+                <div class="card">
+                    <div class="text-gray-400 text-xs mb-1">Máxima</div>
+                    <div class="text-lg font-semibold green" id="high"></div>
+                </div>
+                <div class="card">
+                    <div class="text-gray-400 text-xs mb-1">Mínima</div>
+                    <div class="text-lg font-semibold red" id="low"></div>
+                </div>
+                <div class="card">
+                    <div class="text-gray-400 text-xs mb-1">Volume</div>
+                    <div class="text-lg font-semibold" id="volume"></div>
+                </div>
+                <div class="card">
+                    <div class="text-gray-400 text-xs mb-1">Máx 52 Sem</div>
+                    <div class="text-lg font-semibold green" id="high52"></div>
+                </div>
+                <div class="card">
+                    <div class="text-gray-400 text-xs mb-1">Mín 52 Sem</div>
+                    <div class="text-lg font-semibold red" id="low52"></div>
+                </div>
+            </div>
+
+            <!-- Range Selector -->
+            <div class="flex gap-2 mb-4">
+                <button class="btn btn-secondary text-sm" onclick="loadHistory('5d')">5D</button>
+                <button class="btn btn-active text-sm" id="btn1mo" onclick="loadHistory('1mo')">1M</button>
+                <button class="btn btn-secondary text-sm" onclick="loadHistory('3mo')">3M</button>
+                <button class="btn btn-secondary text-sm" onclick="loadHistory('6mo')">6M</button>
+                <button class="btn btn-secondary text-sm" onclick="loadHistory('1y')">1A</button>
+            </div>
+
+            <!-- Chart -->
+            <div class="card mb-6">
+                <h3 class="text-lg font-semibold mb-4">📈 Histórico de Preços</h3>
+                <canvas id="priceChart" height="300"></canvas>
+            </div>
+
+            <!-- Fundamentals -->
+            <div class="card">
+                <h3 class="text-lg font-semibold mb-4">📊 Indicadores Fundamentalistas</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-700/30 rounded-lg p-4">
+                        <h4 class="text-green-400 font-semibold mb-3">💰 Valuation</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span class="text-gray-400">Market Cap:</span><span id="marketCap"></span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">P/L:</span><span id="pe"></span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">P/VP:</span><span id="pvp"></span></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-700/30 rounded-lg p-4">
+                        <h4 class="text-blue-400 font-semibold mb-3">📈 Trading</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span class="text-gray-400">Fech. Anterior:</span><span id="prevClose"></span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">Vol. Médio (3m):</span><span id="avgVol"></span></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-700/30 rounded-lg p-4">
+                        <h4 class="text-purple-400 font-semibold mb-3">📊 Médias Móveis</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span class="text-gray-400">MM 50:</span><span id="ma50"></span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">MM 200:</span><span id="ma200"></span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 pt-4 border-t border-gray-800 text-center text-gray-500 text-sm">
+            <p>Dados via BrAPI • Cache de 5 minutos</p>
+        </div>
+    </div>
+
+    <script>
+        let currentTicker = 'PETR4';
+        let currentRange = '1mo';
+        let priceChart = null;
+
+        function formatCurrency(num) {
+            if (num == null) return 'N/A';
+            return 'R$ ' + Number(num).toFixed(2);
+        }
+
+        function formatNumber(num) {
+            if (num == null) return 'N/A';
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+            return num.toLocaleString('pt-BR');
+        }
+
+        function selectTicker(ticker) {
+            document.getElementById('searchInput').value = ticker;
+            currentTicker = ticker;
+            loadData();
+        }
+
+        async function loadData() {
+            const ticker = document.getElementById('searchInput').value.toUpperCase().trim();
+            if (!ticker) return;
+            currentTicker = ticker;
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('content').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
+
+            try {
+                const response = await fetch(`/quote/${ticker}/full`);
+                const json = await response.json();
+                const data = json.data;
+
+                // Update UI
+                document.getElementById('symbol').textContent = data.symbol;
+                document.getElementById('companyName').textContent = data.longName || data.shortName || '';
+                document.getElementById('price').textContent = formatCurrency(data.regularMarketPrice);
+                
+                const changePercent = data.regularMarketChangePercent || 0;
+                const changeValue = data.regularMarketChange || 0;
+                const isPositive = changePercent >= 0;
+                document.getElementById('change').innerHTML = `
+                    <span class="${isPositive ? 'green' : 'red'}">${isPositive ? '▲' : '▼'} ${isPositive ? '+' : ''}${changePercent.toFixed(2)}%</span>
+                    <span class="text-gray-400 text-base">(${formatCurrency(changeValue)}
