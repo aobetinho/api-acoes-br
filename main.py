@@ -1,32 +1,28 @@
 """
-Backend de Dados de Ações Brasileiras
+Backend de Dados de Ações Brasileiras + Frontend
 """
 
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 import httpx
 from datetime import datetime, timedelta
 from typing import Optional
+from pathlib import Path
 
 app = FastAPI(title="API de Ações BR", version="1.0.0")
 
-# CORS - PERMITE QUALQUER ORIGEM
+# CORS
 @app.middleware("http")
 async def add_cors_headers(request, call_next):
     if request.method == "OPTIONS":
-        return JSONResponse(
-            content={},
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "*",
-                "Access-Control-Allow-Headers": "*",
-            }
-        )
+        return JSONResponse(content={}, headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        })
     response = await call_next(request)
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
 # Cache
@@ -56,11 +52,15 @@ async def fetch_brapi(endpoint: str) -> dict:
             raise HTTPException(status_code=404, detail="Ticker não encontrado")
         return data["results"][0]
 
-# Endpoints
-@app.get("/")
-async def root():
-    return {"status": "online", "message": "API de Ações BR"}
+# Serve Frontend
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    html_path = Path("index.html")
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text(), status_code=200)
+    return HTMLResponse(content="<h1>Dashboard</h1><p>index.html não encontrado</p>", status_code=200)
 
+# API Endpoints
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
@@ -98,24 +98,15 @@ async def get_history(ticker: str, range: str = "1mo"):
     save_to_cache(cache_key, data)
     return {"source": "api", "data": data}
 
-@app.get("/quotes")
-async def get_multiple(tickers: str):
-    ticker_list = [t.strip().upper() for t in tickers.split(",")]
-    results = []
-    for ticker in ticker_list:
-        try:
-            cache_key = f"quote_{ticker}"
-            cached = get_from_cache(cache_key)
-            if cached:
-                results.append({"ticker": ticker, "source": "cache", "data": cached})
-            else:
-                data = await fetch_brapi(f"/quote/{ticker}")
-                save_to_cache(cache_key, data)
-                results.append({"ticker": ticker, "source": "api", "data": data})
-        except Exception as e:
-            results.append({"ticker": ticker, "error": str(e)})
-    return {"results": results}
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+**6. Commit as mudanças**
+
+**7. Aguarde 1-2 minutos para o deploy**
+
+**8. Acesse sua URL:**
+```
+https://web-production-8c3b4.up.railway.app/
